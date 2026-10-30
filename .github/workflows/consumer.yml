@@ -1,0 +1,28 @@
+name: Consumer
+on:
+  workflow_run:
+    workflows: ["PR Workflow"]
+    types: [completed]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  grab:
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          script: |
+            const w = context.payload.workflow_run;
+            core.info(`head_repo=${w.head_repository.full_name} head_branch=${w.head_branch} head_sha=${w.head_sha} prs=${JSON.stringify(w.pull_requests.map(p=>p.number))}`);
+            core.info(`base_sha=${w.base_sha} id=${w.id}`);
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          pattern: dependency-graph_*
+          path: dl
+          merge-multiple: true
+      - run: |
+          find dl -type f -maxdepth 2 -print -exec cat {} \;
